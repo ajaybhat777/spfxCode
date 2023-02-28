@@ -1,95 +1,89 @@
 import * as React from 'react';
+import * as ReactDom from 'react-dom';
+import { IPropertyPaneConfiguration } from "@microsoft/sp-property-pane";
 import ScriptEditorWebPart from './ScriptEditorWebPart';
-import { Version, DisplayMode } from '@microsoft/sp-core-library';
-import { BaseClientSideWebPart } from "@microsoft/sp-webpart-base";
-import { IPropertyPaneConfiguration, PropertyPaneTextField, PropertyPaneToggle } from "@microsoft/sp-property-pane";
-import { IScriptEditorProps } from './components/IScriptEditorProps';
-import PropertyPaneLogo from './PropertyPaneLogo';
 
-jest.mock('@pnp/spfx-property-controls/lib/PropertyFieldCodeEditor', () => {
-  return {
-    PropertyFieldCodeEditor: jest.fn()
-  };
-});
-
-jest.mock('react-dom', () => ({
-  render: jest.fn(),
-  unmountComponentAtNode: jest.fn()
-}));
+jest.mock('react-dom', () => ({ render: jest.fn() }));
 
 describe('ScriptEditorWebPart', () => {
+  let domElement: HTMLElement;
   let webPart: ScriptEditorWebPart;
-  let mockElement: HTMLElement;
-  let mockPropertyPaneHelper: any;
-  const mockPropPane = {
-    refresh: jest.fn(),
-    getPropertyPaneConfiguration: jest.fn()
-  };
 
   beforeEach(() => {
+    domElement = document.createElement('div');
+
+    const renderSpy = jest.spyOn(ReactDom, 'render');
     webPart = new ScriptEditorWebPart();
-    webPart.context = {
-      instanceId: 'instanceId',
-      propertyPane: mockPropPane,
-      sdks: {}
-    };
-    webPart.properties = {
-      title: 'test title',
-      removePadding: false,
-      script: 'test script',
-      spPageContextInfo: false,
-      teamsContext: false
-    };
-    mockPropertyPaneHelper = {
-      initialValue: webPart.properties.script,
-      onPropertyChange: jest.fn()
-    };
-    webPart['_propertyPaneHelper'] = mockPropertyPaneHelper;
-    mockElement = document.createElement('div');
-    jest.spyOn(webPart, 'executeScript').mockImplementation(jest.fn());
+    webPart.render();
+    expect(renderSpy).toHaveBeenCalledWith(expect.any(Object), domElement);
+    renderSpy.mockClear();
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    jest.restoreAllMocks();
   });
 
-  describe('constructor', () => {
-    it('should set scriptUpdate method as binded', () => {
-      expect(webPart.scriptUpdate.name).toEqual('bound scriptUpdate');
-    });
+  it('should render editor component', async () => {
+    const editorMock = jest.fn().mockReturnValue(<div>Editor Component</div>);
+    jest.mock('./components/ScriptEditor', () => ({ default: editorMock }));
+
+    // Set the display mode to Edit
+    webPart.displayMode = 2;
+    await webPart.renderEditor();
+
+    expect(ReactDom.render).toHaveBeenCalledWith(expect.any(Object), domElement);
+
+    // Verify that the editor component was rendered with the correct props
+    const expectedProps = {
+      script: webPart.properties.script,
+      title: webPart.properties.title,
+      propPaneHandle: webPart.context.propertyPane,
+      key: expect.any(String)
+    };
+    expect(editorMock).toHaveBeenCalledWith(expectedProps, expect.any(Object));
   });
 
-  describe('render', () => {
-    it('should call renderEditor if display mode is Edit', async () => {
-      webPart.displayMode = DisplayMode.Edit;
-      jest.spyOn(webPart, 'renderEditor').mockImplementation(jest.fn());
-      await webPart.render();
-      expect(webPart.renderEditor).toHaveBeenCalledTimes(1);
-    });
+  it('should render script content when in Read mode', async () => {
+    // Set the display mode to Read
+    webPart.displayMode = 1;
+    webPart.properties.script = '<div>Hello World!</div>';
+    webPart.render();
 
-    it('should call executeScript if display mode is Read', () => {
-      webPart.displayMode = DisplayMode.Read;
-      jest.spyOn(webPart, 'executeScript').mockImplementation(jest.fn());
-      webPart.render();
-      expect(webPart.executeScript).toHaveBeenCalledTimes(1);
-    });
+    expect(ReactDom.render).not.toHaveBeenCalled();
 
-    it('should remove padding from parent element if removePadding is true', () => {
-      webPart.displayMode = DisplayMode.Read;
-      webPart.properties.removePadding = true;
-      const mockParentElement = {
-        style: {
-          paddingTop: '10px',
-          paddingBottom: '10px',
-          marginTop: '10px',
-          marginBottom: '10px'
+    // Verify that the script content was rendered to the DOM
+    expect(domElement.innerHTML).toEqual(webPart.properties.script);
+  });
+
+  it('should remove padding from the parent element when in Read mode', async () => {
+    // Set the display mode to Read
+    webPart.displayMode = 1;
+    webPart.properties.removePadding = true;
+    webPart.render();
+
+    expect(ReactDom.render).not.toHaveBeenCalled();
+
+    // Verify that padding was removed from the parent element
+    expect(webPart.domElement.parentElement.style.paddingTop).toBe('0px');
+    expect(webPart.domElement.parentElement.style.paddingBottom).toBe('0px');
+    expect(webPart.domElement.parentElement.style.marginTop).toBe('0px');
+    expect(webPart.domElement.parentElement.style.marginBottom).toBe('0px');
+  });
+
+  it('should render the property pane configuration', () => {
+    const expectedConfiguration: IPropertyPaneConfiguration = {
+      pages: [
+        {
+          groups: [
+            {
+              groupFields: expect.any(Array)
+            }
+          ]
         }
-      };
-      const spyGetComputedStyle = jest.spyOn(window, 'getComputedStyle').mockImplementation(() => ({
-        paddingTop: '10px'
-      }));
-      const spyGetParentElement = jest.spyOn(webPart.domElement, 'parentElement', 'get').mockImplementation(() => mockParentElement as any);
-      webPart.render();
-      expect(mockParentElement.style.paddingTop).toEqual('0px');
-      expect(mockParentElement.style.paddingBottom).toEqual('0px');
-      expect(mockParentElement.style.marginTop).toEqual('0px');
+      ]
+    };
+
+    const actualConfiguration = webPart.getPropertyPaneConfiguration();
+    expect(actualConfiguration).toEqual(expectedConfiguration);
+  });
+});
