@@ -1,90 +1,116 @@
 import * as React from 'react';
-import * as ReactDom from 'react-dom';
+import { IWebPartContext, IWebPartContextualMenuItem } from '@microsoft/sp-webpart-base';
 import { DisplayMode } from '@microsoft/sp-core-library';
-import { BaseClientSideWebPart } from "@microsoft/sp-webpart-base";
-import { IPropertyPaneConfiguration, IPropertyPaneField } from "@microsoft/sp-property-pane";
+import { SPComponentLoader } from '@microsoft/sp-loader';
 import { IScriptEditorWebPartProps } from './IScriptEditorWebPartProps';
 import ScriptEditorWebPart from './ScriptEditorWebPart';
-import PropertyPaneLogo from './PropertyPaneLogo';
-
-// Mocked SPComponentLoader
-jest.mock('@microsoft/sp-loader', () => ({
-  SPComponentLoader: {
-    loadScript: jest.fn(),
-  },
-}));
-
-// Mock BaseClientSideWebPart
-class MockBaseClientSideWebPart<P> extends BaseClientSideWebPart<P> {
-  protected onInit(): Promise<void> {
-    return Promise.resolve();
-  }
-}
 
 describe('ScriptEditorWebPart', () => {
-  let webPart: ScriptEditorWebPart;
-  let webPartElem: HTMLElement;
-  const renderEditorSpy = jest.spyOn(ScriptEditorWebPart.prototype, 'renderEditor');
+  let mockWebPartContext: IWebPartContext;
+  let mockSettings: IScriptEditorWebPartProps;
+  let component: ScriptEditorWebPart;
 
   beforeEach(() => {
-    // Mock the web part properties
-    const properties: IScriptEditorWebPartProps = {
-      script: '',
-      title: '',
-      removePadding: false,
-    };
-
-    // Create a new instance of the web part
-    webPart = new ScriptEditorWebPart();
-    webPart.displayMode = DisplayMode.Read;
-    webPart.properties = properties;
-    webPart.render();
-    
-    // Mock the context
-    const context = {
-      instanceId: 'instanceId',
+    mockWebPartContext = {
+      instanceId: 'mockInstanceId',
       pageContext: {
         web: {
-          absoluteUrl: '',
+          absoluteUrl: 'https://mock.sharepoint.com',
         },
       },
-      webPartProperties: properties,
-      webPartDisplayMode: DisplayMode.Read,
-      webPartContext: {
-        serviceScope: {
-          consume: jest.fn(),
-        },
-      } as any,
-      propertyPane: {
-        refresh: jest.fn(),
-      } as any,
+      serviceScope: null,
+      webPartContext: null,
+      webPartManager: null,
+      domElement: null,
+      properties: {},
+      displayMode: DisplayMode.Read,
+      version: null,
+      contextualMenuItems: [],
+      setLayoutMode: jest.fn(),
+      notifyPropertyChanged: jest.fn(),
+      configureStart: jest.fn(),
+      onContextMenu: jest.fn(),
+      onDispose: jest.fn(),
+      onInit: jest.fn(),
+      onLoad: jest.fn(),
+      onResize: jest.fn(),
+      onUpdate: jest.fn(),
+      onWebPartClosed: jest.fn(),
+      onWebPartDeleted: jest.fn(),
+      onWebPartMoved: jest.fn(),
+      onWebPartRendered: jest.fn(),
     };
-    
-    webPart.context = context;
 
-    // Create a new DOM element to render the web part
-    webPartElem = document.createElement('div');
-    document.body.appendChild(webPartElem);
-    webPart.render();
+    mockSettings = {
+      script: 'console.log("Hello, World!");',
+      title: 'Mock Script Editor',
+      removePadding: true,
+    };
 
-    // Reset the spy on renderEditor
-    renderEditorSpy.mockClear();
+    component = new ScriptEditorWebPart();
+    component.context = mockWebPartContext;
+    component.properties = mockSettings;
   });
 
   afterEach(() => {
-    ReactDom.unmountComponentAtNode(webPartElem);
-    document.body.removeChild(webPartElem);
+    jest.resetAllMocks();
   });
 
   it('renders in read mode', () => {
-    expect(renderEditorSpy).not.toHaveBeenCalled();
-    expect(webPartElem.innerHTML).toContain('');
+    // Arrange
+    component.displayMode = DisplayMode.Read;
+
+    // Act
+    component.render();
+
+    // Assert
+    expect(component.domElement.innerHTML).toBe(mockSettings.script);
   });
 
   it('renders in edit mode', async () => {
-    webPart.displayMode = DisplayMode.Edit;
-    webPart.render();
+    // Arrange
+    component.displayMode = DisplayMode.Edit;
+    SPComponentLoader.loadComponentById = jest.fn().mockResolvedValueOnce(() => {
+      return {
+        default: jest.fn(() => {
+          return <div>Mock Script Editor</div>;
+        }),
+      };
+    });
 
-    expect(renderEditorSpy).toHaveBeenCalled();
+    // Act
+    await component.renderEditor();
+
+    // Assert
+    expect(SPComponentLoader.loadComponentById).toHaveBeenCalledTimes(1);
+    expect(component.domElement.innerHTML).toBe('<div>Mock Script Editor</div>');
   });
-});
+
+  it('removes padding in read mode when removePadding property is true', () => {
+    // Arrange
+    component.displayMode = DisplayMode.Read;
+    component.properties.removePadding = true;
+    const parentElement = document.createElement('div');
+    parentElement.style.paddingTop = '10px';
+    component.domElement.parentElement = parentElement;
+
+    // Act
+    component.render();
+
+    // Assert
+    expect(component.domElement.parentElement.style.paddingTop).toBe('0px');
+  });
+
+  it('does not remove padding in read mode when removePadding property is false', () => {
+    // Arrange
+    component.displayMode = DisplayMode.Read;
+    component.properties.removePadding = false;
+    const parentElement = document.createElement('div');
+    parentElement.style.paddingTop = '10px';
+    component.domElement.parentElement = parentElement;
+
+    // Act
+    component.render();
+
+    // Assert
+    expect(component.dom
