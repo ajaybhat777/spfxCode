@@ -1,92 +1,110 @@
 import * as React from 'react';
 import * as ReactDom from 'react-dom';
-import ScriptEditorWebPart from './ScriptEditorWebPart';
+import { DisplayMode } from '@microsoft/sp-core-library';
+import { BaseClientSideWebPart } from "@microsoft/sp-webpart-base";
+import { IPropertyPaneConfiguration, PropertyPaneToggle } from "@microsoft/sp-property-pane";
+import PropertyPaneLogo from './PropertyPaneLogo';
+
+// Mocks
+jest.mock('@microsoft/sp-core-library', () => ({
+  DisplayMode: { Read: 1 }
+}));
+
+jest.mock('@microsoft/sp-webpart-base', () => ({
+  BaseClientSideWebPart: jest.fn().mockImplementation(() => ({
+    render: jest.fn(),
+    dataVersion: { toString: () => '1.0' },
+    context: { instanceId: '1' }
+  }))
+}));
+
+jest.mock('@microsoft/sp-property-pane', () => ({
+  PropertyPaneToggle: jest.fn().mockImplementation(() => ({
+    render: jest.fn()
+  })),
+  IPropertyPaneConfiguration: jest.fn().mockImplementation(() => ({
+    pages: [
+      {
+        groups: [
+          {
+            groupFields: [{}]
+          }
+        ]
+      }
+    ]
+  }))
+}));
+
+jest.mock('./components/ScriptEditor', () => ({
+  default: jest.fn().mockImplementation(() => <div />)
+}));
 
 describe('ScriptEditorWebPart', () => {
+  let reactDomSpy;
+  let webPart: BaseClientSideWebPart<any>;
+  let scriptEditorWebPart: any;
+
   beforeEach(() => {
-    jest.spyOn(ReactDom, 'render').mockImplementation(() => null);
-    jest.spyOn(ReactDom, 'unmountComponentAtNode').mockImplementation(() => null);
+    reactDomSpy = jest.spyOn(ReactDom, 'render');
+    webPart = new BaseClientSideWebPart<any>();
+    scriptEditorWebPart = new (require('./ScriptEditorWebPart').default)(webPart);
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    jest.clearAllMocks();
   });
 
-  it('renders editor component', async () => {
-    const mockContext = {
-      instanceId: '123',
-      propertyPane: {},
-      sdks: { microsoftTeams: false },
+  it('should render in display mode', () => {
+    // Arrange
+    scriptEditorWebPart.displayMode = DisplayMode.Read;
+    scriptEditorWebPart.properties = {
+      removePadding: false,
+      script: '<h1>Hello World!</h1>',
+      title: 'Test Web Part'
     };
-    const mockProps = {
-      script: '<div>Hello, world!</div>',
-      title: 'My web part',
-      removePadding: true,
-      spPageContextInfo: false,
-      teamsContext: false,
-    };
-    const element = React.createElement(ScriptEditorWebPart, {
-      context: mockContext,
-      ...mockProps,
-    });
 
-    await ReactDom.render(element, document.createElement('div'));
+    // Act
+    scriptEditorWebPart.render();
 
-    expect(ReactDom.render).toHaveBeenCalledTimes(1);
-    expect(ReactDom.render).toHaveBeenCalledWith(
-      expect.any(React.ReactElement),
+    // Assert
+    expect(reactDomSpy).toHaveBeenCalledWith(
+      expect.any(Function),
       expect.any(HTMLElement)
     );
   });
 
-  it('renders read mode', () => {
-    const mockContext = {
-      instanceId: '123',
-      propertyPane: {},
-      sdks: { microsoftTeams: false },
+  it('should render in edit mode', async () => {
+    // Arrange
+    scriptEditorWebPart.displayMode = DisplayMode.Edit;
+    scriptEditorWebPart.properties = {
+      removePadding: false,
+      script: '<h1>Hello World!</h1>',
+      title: 'Test Web Part'
     };
-    const mockProps = {
-      script: '<div>Hello, world!</div>',
-      title: 'My web part',
-      removePadding: true,
-      spPageContextInfo: false,
-      teamsContext: false,
-    };
-    const element = React.createElement(ScriptEditorWebPart, {
-      context: mockContext,
-      ...mockProps,
-      displayMode: { Read: 1 },
-    });
 
-    ReactDom.render(element, document.createElement('div'));
+    // Act
+    await scriptEditorWebPart.render();
 
-    expect(ReactDom.unmountComponentAtNode).toHaveBeenCalledTimes(1);
-    expect(ReactDom.unmountComponentAtNode).toHaveBeenCalledWith(expect.any(HTMLElement));
+    // Assert
+    expect(reactDomSpy).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.any(HTMLElement)
+    );
   });
 
-  it('updates script property', async () => {
-    const mockContext = {
-      instanceId: '123',
-      propertyPane: {},
-      sdks: { microsoftTeams: false },
-    };
-    const mockProps = {
-      script: '<div>Hello, world!</div>',
-      title: 'My web part',
+  it('should remove padding in read mode when removePadding is true', async () => {
+    // Arrange
+    scriptEditorWebPart.displayMode = DisplayMode.Read;
+    scriptEditorWebPart.properties = {
       removePadding: true,
-      spPageContextInfo: false,
-      teamsContext: false,
+      script: '<h1>Hello World!</h1>',
+      title: 'Test Web Part'
     };
-    const element = React.createElement(ScriptEditorWebPart, {
-      context: mockContext,
-      ...mockProps,
-    });
-    const instance = await ReactDom.render(element, document.createElement('div'));
-    const newScript = '<div>Goodbye, world!</div>';
 
-    instance.scriptUpdate('script', mockProps.script, newScript);
-
-    expect(instance.properties.script).toBe(newScript);
-    expect(instance._propertyPaneHelper.initialValue).toBe(newScript);
-  });
-});
+    const parentNode = { style: {} };
+    const grandParentNode = { style: {} };
+    const greatGrandParentNode = { style: {} };
+    const greatGreatGrandParentNode = { style: {} };
+    const greatGreatGreatGrandParentNode = { style: {} };
+    scriptEditorWebPart.domElement = {
+     
