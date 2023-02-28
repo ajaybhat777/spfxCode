@@ -1,110 +1,61 @@
 import * as React from 'react';
 import * as ReactDom from 'react-dom';
-import { DisplayMode } from '@microsoft/sp-core-library';
-import { BaseClientSideWebPart } from "@microsoft/sp-webpart-base";
-import { IPropertyPaneConfiguration, PropertyPaneToggle } from "@microsoft/sp-property-pane";
-import PropertyPaneLogo from './PropertyPaneLogo';
+import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base';
+import ScriptEditorWebPart from './ScriptEditorWebPart';
 
-// Mocks
-jest.mock('@microsoft/sp-core-library', () => ({
-  DisplayMode: { Read: 1 }
+// Mock the SPComponentLoader and SPPropertyPane modules
+jest.mock('@microsoft/sp-component-base', () => ({
+  ...jest.requireActual('@microsoft/sp-component-base'),
+  SPComponentLoader: {
+    loadScript: jest.fn(),
+    loadCss: jest.fn(),
+  },
 }));
-
-jest.mock('@microsoft/sp-webpart-base', () => ({
-  BaseClientSideWebPart: jest.fn().mockImplementation(() => ({
-    render: jest.fn(),
-    dataVersion: { toString: () => '1.0' },
-    context: { instanceId: '1' }
-  }))
-}));
-
 jest.mock('@microsoft/sp-property-pane', () => ({
-  PropertyPaneToggle: jest.fn().mockImplementation(() => ({
-    render: jest.fn()
-  })),
-  IPropertyPaneConfiguration: jest.fn().mockImplementation(() => ({
-    pages: [
-      {
-        groups: [
-          {
-            groupFields: [{}]
-          }
-        ]
-      }
-    ]
-  }))
-}));
-
-jest.mock('./components/ScriptEditor', () => ({
-  default: jest.fn().mockImplementation(() => <div />)
+  ...jest.requireActual('@microsoft/sp-property-pane'),
 }));
 
 describe('ScriptEditorWebPart', () => {
-  let reactDomSpy;
-  let webPart: BaseClientSideWebPart<any>;
-  let scriptEditorWebPart: any;
+  let component: ScriptEditorWebPart;
 
   beforeEach(() => {
-    reactDomSpy = jest.spyOn(ReactDom, 'render');
-    webPart = new BaseClientSideWebPart<any>();
-    scriptEditorWebPart = new (require('./ScriptEditorWebPart').default)(webPart);
+    component = new ScriptEditorWebPart();
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
+  it('should render the editor', async () => {
+    // Mock the ReactDom.render method
+    ReactDom.render = jest.fn();
 
-  it('should render in display mode', () => {
-    // Arrange
-    scriptEditorWebPart.displayMode = DisplayMode.Read;
-    scriptEditorWebPart.properties = {
-      removePadding: false,
-      script: '<h1>Hello World!</h1>',
-      title: 'Test Web Part'
-    };
-
-    // Act
-    scriptEditorWebPart.render();
-
-    // Assert
-    expect(reactDomSpy).toHaveBeenCalledWith(
-      expect.any(Function),
-      expect.any(HTMLElement)
-    );
-  });
-
-  it('should render in edit mode', async () => {
-    // Arrange
-    scriptEditorWebPart.displayMode = DisplayMode.Edit;
-    scriptEditorWebPart.properties = {
-      removePadding: false,
-      script: '<h1>Hello World!</h1>',
-      title: 'Test Web Part'
-    };
-
-    // Act
-    await scriptEditorWebPart.render();
-
-    // Assert
-    expect(reactDomSpy).toHaveBeenCalledWith(
-      expect.any(Function),
-      expect.any(HTMLElement)
-    );
-  });
-
-  it('should remove padding in read mode when removePadding is true', async () => {
-    // Arrange
-    scriptEditorWebPart.displayMode = DisplayMode.Read;
-    scriptEditorWebPart.properties = {
+    // Set the properties of the component
+    component.properties = {
+      script: 'console.log("Hello, World!");',
+      title: 'Script Editor',
       removePadding: true,
-      script: '<h1>Hello World!</h1>',
-      title: 'Test Web Part'
+    };
+    component.displayMode = 1;
+
+    // Call the render method
+    component.render();
+
+    // Expect that the ReactDom.render method was called with the correct parameters
+    expect(ReactDom.render).toHaveBeenCalledWith(
+      expect.anything(),
+      component.domElement,
+    );
+  });
+
+  it('should update the script property', () => {
+    // Set the properties of the component
+    component.properties = {
+      script: 'console.log("Hello, World!");',
+      title: 'Script Editor',
+      removePadding: true,
     };
 
-    const parentNode = { style: {} };
-    const grandParentNode = { style: {} };
-    const greatGrandParentNode = { style: {} };
-    const greatGreatGrandParentNode = { style: {} };
-    const greatGreatGreatGrandParentNode = { style: {} };
-    scriptEditorWebPart.domElement = {
-     
+    // Call the scriptUpdate method
+    component.scriptUpdate('script', 'console.log("Hello, World!");', 'console.log("Hello, Jest!");');
+
+    // Expect that the script property was updated
+    expect(component.properties.script).toBe('console.log("Hello, Jest!");');
+  });
+});
