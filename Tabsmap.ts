@@ -106,5 +106,22 @@ export default class MyWebPartWebPart extends BaseClientSideWebPart<IMyWebPartWe
 
       this.render();
     }
+protected onPropertyPaneFieldChanged(propertyPath: string, oldValue: any, newValue: any): void {
+  if (propertyPath.indexOf('tabs') !== -1) {
+    const tabsIndex = propertyPath.split('.')[1]; // Get the index of the tab being modified
+    const tabIndex = parseInt(tabsIndex.replace(/\D/g, ''), 10); // Extract the numerical index value
+
+    this.properties.tabs = this.properties.tabs.map((tab, index) => {
+      if (index === tabIndex) {
+        const property = propertyPath.split(']').pop().replace(/\./g, '').replace(/\[/g, '');
+        tab[property] = newValue;
+      }
+      return tab;
+    });
+
+    this.render();
+  }
+}
+
   }
 }
