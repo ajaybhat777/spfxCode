@@ -113,8 +113,9 @@ protected onPropertyPaneFieldChanged(propertyPath: string, oldValue: any, newVal
 
     this.properties.tabs = this.properties.tabs.map((tab, index) => {
       if (index === tabIndex) {
-        const property = propertyPath.split(']').pop().replace(/\./g, '').replace(/\[/g, '');
-        tab[property] = newValue;
+        const tabProperties = Object.keys(tab);
+        const propertyIndex = parseInt(propertyPath.split('[')[2].split(']')[0], 10);
+        tab[tabProperties[propertyIndex]] = newValue;
       }
       return tab;
     });
@@ -123,5 +124,4 @@ protected onPropertyPaneFieldChanged(propertyPath: string, oldValue: any, newVal
   }
 }
 
-  }
 }
