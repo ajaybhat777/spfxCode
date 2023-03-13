@@ -29,3 +29,16 @@ const mockPropertyPaneConfiguration: IPropertyPaneConfiguration = {
     }
   ]
 };
+const PropertyPane = jest.fn(() => ({
+  render: jest.fn(() => null),
+}));
+const PropertyPaneGroup = jest.fn(() => ({
+  add: jest.fn(() => null),
+}));
+const PropertyPaneCheckbox = jest.fn(() => ({
+  onPropertyChange: jest.fn(() => null),
+}));
+const PropertyPaneTextField = jest.fn(() => ({
+  onPropertyChange: jest.fn(() => null),
+}));
+
