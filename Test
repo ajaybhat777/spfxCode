@@ -1,0 +1,171 @@
+using System;
+using System.Collections.Generic;
+using System.Data;
+using Moq;
+using Xunit;
+
+// Sample Audience class
+public class Audience
+{
+    public string? Color { get; set; }
+    public bool Deleted { get; set; }
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public int? Sortorder { get; set; }
+}
+
+public class AudienceMapperTests
+{
+    // Mocking the GetFieldValue and GetNullableFieldValue extension methods
+    private void SetupMockDataReader(Mock<IDataReader> mock, Dictionary<string, object> fieldValues)
+    {
+        foreach (var field in fieldValues)
+        {
+            mock.Setup(reader => reader[field.Key])
+                .Returns(field.Value);
+        }
+    }
+
+    // Mocking the GetNullableFieldValue extension method
+    private T? GetNullableFieldValue<T>(IDataReader reader, string fieldName) where T : struct
+    {
+        var value = reader[fieldName];
+        return value == DBNull.Value ? (T?)null : (T)value;
+    }
+
+    // Mocking the GetFieldValue extension method
+    private T GetFieldValue<T>(IDataReader reader, string fieldName)
+    {
+        var value = reader[fieldName];
+        return (T)value;
+    }
+
+    [Fact]
+    public void MapAudience_ShouldReturnNull_WhenShouldReadIsTrueAndReaderReadReturnsFalse()
+    {
+        // Arrange
+        var mockReader = new Mock<IDataReader>();
+        mockReader.Setup(reader => reader.Read()).Returns(false);
+
+        // Act
+        var result = MapAudience(mockReader.Object);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void MapAudience_ShouldReturnAudience_WhenShouldReadIsFalse()
+    {
+        // Arrange
+        var mockReader = new Mock<IDataReader>();
+        SetupMockDataReader(mockReader, new Dictionary<string, object>
+        {
+            { "Color", "Red" },
+            { "Deleted", false },
+            { "ID", 1 },
+            { "Name", "Test Audience" },
+            { "Sortorder", 2 }
+        });
+
+        // Act
+        var result = MapAudience(mockReader.Object, false);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("Red", result.Color);
+        Assert.False(result.Deleted);
+        Assert.Equal(1, result.Id);
+        Assert.Equal("Test Audience", result.Name);
+        Assert.Equal(2, result.Sortorder);
+    }
+
+    [Fact]
+    public void MapAudience_ShouldReturnAudience_WhenShouldReadIsTrueAndReaderReadReturnsTrue()
+    {
+        // Arrange
+        var mockReader = new Mock<IDataReader>();
+        mockReader.Setup(reader => reader.Read()).Returns(true);
+        SetupMockDataReader(mockReader, new Dictionary<string, object>
+        {
+            { "Color", "Blue" },
+            { "Deleted", true },
+            { "ID", 2 },
+            { "Name", "Another Audience" },
+            { "Sortorder", DBNull.Value }
+        });
+
+        // Act
+        var result = MapAudience(mockReader.Object);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("Blue", result.Color);
+        Assert.True(result.Deleted);
+        Assert.Equal(2, result.Id);
+        Assert.Equal("Another Audience", result.Name);
+        Assert.Null(result.Sortorder);
+    }
+
+    [Fact]
+    public void MapAudiences_ShouldReturnListOfAudiences()
+    {
+        // Arrange
+        var mockReader = new Mock<IDataReader>();
+        mockReader.SetupSequence(reader => reader.Read())
+            .Returns(true)
+            .Returns(true)
+            .Returns(false);
+
+        SetupMockDataReader(mockReader, new Dictionary<string, object>
+        {
+            { "Color", "Red" },
+            { "Deleted", false },
+            { "ID", 1 },
+            { "Name", "Test Audience" },
+            { "Sortorder", 2 }
+        });
+
+        // Act
+        var result = MapAudiences(mockReader.Object);
+
+        // Assert
+        Assert.Equal(2, result.Count);
+        Assert.Equal("Red", result[0].Color);
+        Assert.False(result[0].Deleted);
+        Assert.Equal(1, result[0].Id);
+        Assert.Equal("Test Audience", result[0].Name);
+        Assert.Equal(2, result[0].Sortorder);
+
+        Assert.Equal("Red", result[1].Color);
+        Assert.False(result[1].Deleted);
+        Assert.Equal(1, result[1].Id);
+        Assert.Equal("Test Audience", result[1].Name);
+        Assert.Equal(2, result[1].Sortorder);
+    }
+
+    // Sample implementation of MapAudience method
+    public Audience? MapAudience(IDataReader reader, bool shouldRead = true)
+    {
+        if (shouldRead && !reader.Read()) return null;
+        return new Audience
+        {
+            Color = GetNullableFieldValue<string>(reader, "Color"),
+            Deleted = GetFieldValue<bool>(reader, "Deleted"),
+            Id = GetFieldValue<int>(reader, "ID"),
+            Name = GetFieldValue<string>(reader, "Name"),
+            Sortorder = GetNullableFieldValue<int>(reader, "Sortorder")
+        };
+    }
+
+    // Sample implementation of MapAudiences method
+    public List<Audience?> MapAudiences(IDataReader reader)
+    {
+        var audiences = new List<Audience?>();
+        while (reader.Read())
+        {
+            audiences.Add(MapAudience(reader, false));
+        }
+        return audiences;
+    }
+}
